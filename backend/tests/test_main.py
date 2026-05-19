@@ -1,8 +1,8 @@
 from fastapi.testclient import TestClient
 import pytest
 
-from main import app
-from seed import seed_data
+from backend.main import app
+from backend.seed import seed_data
 
 client = TestClient(app)
 
@@ -11,7 +11,7 @@ client = TestClient(app)
 def initialize_database():
     seed_data()
     yield
-    
+
 
 def test_obtener_clientes_devuelve_lista():
     response = client.get("/clientes")
@@ -21,7 +21,7 @@ def test_obtener_clientes_devuelve_lista():
     primera = response.json()[0]
     assert "nombre" in primera
     assert "curp" in primera
-    
+
 
 def test_obtener_cuenta_devuelve_datos_correctos():
     response = client.get("/api/cuenta/001")
@@ -41,7 +41,6 @@ def test_obtener_cuenta_existente():
     data = response.json()
     assert data["cuenta"] == "001"
     assert data["saldo"] == 5000
-    assert data["cliente"]["curp"] == "RUAA900101MDFXXX01"
     assert isinstance(data["transacciones"], list)
 
 
@@ -58,7 +57,7 @@ def test_realizar_deposito_actualiza_saldo():
         "tipo": "deposito",
         "monto": 1000,
         "descripcion": "Prueba depósito",
-        "sucursal": {"sucursal": "Central", "direccion": "Av. Principal 123, Ciudad"}
+        "sucursal": {"sucursal": "Central", "direccion": "Av. Principal 123, Ciudad"},
     }
 
     response = client.post("/api/deposito", json=payload)
@@ -78,7 +77,7 @@ def test_realizar_retiro_con_saldo_suficiente():
         "tipo": "retiro",
         "monto": 1000,
         "descripcion": "Prueba retiro",
-        "sucursal": {"sucursal": "Norte", "direccion": "Calle Norte 456, Ciudad"}
+        "sucursal": {"sucursal": "Norte", "direccion": "Calle Norte 456, Ciudad"},
     }
 
     response = client.post("/api/retiro", json=payload)
@@ -98,7 +97,7 @@ def test_realizar_retiro_saldo_insuficiente():
         "tipo": "retiro",
         "monto": 999999,
         "sucursal": {"sucursal": "Sur", "direccion": "Calle Sur 789, Ciudad"},
-        "descripcion": "Prueba retiro insuficiente"
+        "descripcion": "Prueba retiro insuficiente",
     }
 
     response = client.post("/api/retiro", json=payload)

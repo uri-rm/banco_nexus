@@ -1,52 +1,47 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import Modal from "../components/ui/modal";
 import { LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
+import FlashMessages from './ui/flashMessages';
+import { FaDollarSign, FaWallet, FaMoneyBillWave, FaArrowCircleDown, FaHistory } from 'react-icons/fa';
+import ModalConsultarSaldo from '@/components/ui/modals/ModalConsultarSaldo';
+import ModalRetiro         from '@/components/ui/modals/ModalRetiro';
+import ModalDeposito       from '@/components/ui/modals/ModalDeposito';
+import ModalHistorial      from '@/components/ui/modals/ModalHistorial';
+import { API_BASE_URL } from '@/config';
 
 export default function DashboardBancoNexus() {
-  const [cuenta, setCuenta] = useState('');
-  const [datos, setDatos] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [userData, setUserData] = useState({});
+
+  // ── Modales ──
+  const [historialModalOpen,      setHistorialModalOpen]      = useState(false);
+  const [retirosModalOpen,        setRetirosModalOpen]        = useState(false);
+  const [depositosModalOpen,      setDepositosModalOpen]      = useState(false);
+  const [transferenciasModalOpen, setTransferenciasModalOpen] = useState(false);
+
+  // ── Estado de cuenta ──
+  const [cuenta,      setCuenta]      = useState('');
+  const [datos,       setDatos]       = useState([]);
+  const [userData,    setUserData]    = useState(null);
   const [dataGrafico, setDataGrafico] = useState([]);
-  const [isTransactionsOpen, setIsTransactionsOpen] = useState(false);
-  const [isDepositOpen, setIsDepositOpen] = useState(false);
-  const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
-  const [depositMonto, setDepositMonto] = useState('');
-  const [depositDescripcion, setDepositDescripcion] = useState('');
-  const [depositSucursal, setDepositSucursal] = useState('');
-  const [depositDireccion, setDepositDireccion] = useState('');
-  const [depositError, setDepositError] = useState('');
-  const [withdrawMonto, setWithdrawMonto] = useState('');
-  const [withdrawDescripcion, setWithdrawDescripcion] = useState('');
-  const [withdrawSucursal, setWithdrawSucursal] = useState('');
-  const [withdrawDireccion, setWithdrawDireccion] = useState('');
-  const [withdrawError, setWithdrawError] = useState('');
 
-  const cargarHistorial = async () => {
-    if (!cuenta) {
-      setError('Ingrese un número de cuenta.');
-      return;
-    }
+  // ── UI ──
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState('');
 
+  // ── Fetch principal ──
+  const cargarHistorial = async (numeroCuenta) => {
+    const c = numeroCuenta ?? cuenta;
+    if (!c) { setError('Ingrese un número de cuenta.'); return; }
     setLoading(true);
     setError('');
-
     try {
-      const res = await axios.get(`http://localhost:8000/api/cuenta/${cuenta}`);
-
+      const res = await axios.get(`${API_BASE_URL}/api/cuenta/${c}`);
+      setCuenta(c);
       setDatos(res.data.transacciones || []);
-      console.log('Transacciones recibidas:', res.data.transacciones);
-      const formated = (res.data.transacciones || []).map(tx => ({
-        fecha: tx.fecha,
-        saldo: tx.saldo,
-      }));
-      setDataGrafico(formated);
-      setUserData(res.data.cliente || {});
+      setDataGrafico((res.data.transacciones || []).map(tx => ({ fecha: tx.fecha, saldo: tx.saldo })));
+      setUserData(res.data.cliente || null);
     } catch (err) {
       setError(err.response?.data?.detail || err.message || 'Ha ocurrido un error');
     } finally {
@@ -54,202 +49,121 @@ export default function DashboardBancoNexus() {
     }
   };
 
-  const resetDepositForm = () => {
-    setDepositMonto('');
-    setDepositDescripcion('');
-    setDepositSucursal('');
-    setDepositDireccion('');
-  };
-
-  const resetWithdrawForm = () => {
-    setWithdrawMonto('');
-    setWithdrawDescripcion('');
-    setWithdrawSucursal('');
-    setWithdrawDireccion('');
-  };
-
-  const handleDeposit = async () => {
-    if (!cuenta) {
-      setDepositError('Carga primero la cuenta antes de depositar.');
-      return;
-    }
-    if (!depositMonto || Number(depositMonto) <= 0) {
-      setDepositError('Ingrese un monto de depósito válido.');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setDepositError('');
-      setError('');
-      await axios.post('http://localhost:8000/api/deposito', {
-        cuenta,
-        fecha: new Date().toISOString(),
-        tipo: 'deposito',
-        monto: Number(depositMonto),
-        descripcion: depositDescripcion,
-        sucursal: {
-          sucursal: depositSucursal,
-          direccion: depositDireccion,
-        },
-      });
-      resetDepositForm();
-      setIsDepositOpen(false);
-      await cargarHistorial();
-    } catch (err) {
-      setDepositError(err.response?.data?.detail || err.message || 'Error al realizar depósito');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleWithdraw = async () => {
-    if (!cuenta) {
-      setWithdrawError('Carga primero la cuenta antes de retirar.');
-      return;
-    }
-    
-    if (!withdrawMonto || Number(withdrawMonto) <= 0) {
-      setWithdrawError('Ingrese un monto de retiro válido.');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setWithdrawError('');
-      setError('');
-      await axios.post('http://localhost:8000/api/retiro', {
-        cuenta,
-        fecha: new Date().toISOString(),
-        tipo: 'retiro',
-        monto: Number(withdrawMonto),
-        descripcion: withdrawDescripcion,
-        sucursal: {
-          sucursal: withdrawSucursal,
-          direccion: withdrawDireccion,
-        },
-      });
-      resetWithdrawForm();
-      setIsWithdrawOpen(false);
-      await cargarHistorial();
-    } catch (err) {
-      setWithdrawError(err.response?.data?.detail || err.message || 'Error al realizar retiro');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <div className="container">
-      <h2 className="page-title">Dashboard Financiero - Banco Nexus</h2>
+    <div>
 
-      <div className="form-row">
-        <Input
-          placeholder="Número de cuenta"
-          value={cuenta}
-          onChange={(e) => setCuenta(e.target.value)}
-        />
-        <Button onClick={cargarHistorial}>Ver evolución de saldo</Button>
-      </div>
-
-      {datos.length > 0 && (
-        <div className="flex gap-3 flex-wrap mb-4">
-          <Button onClick={() => setIsTransactionsOpen(true)}>Ver transacciones</Button>
-          <Button onClick={() => {
-            setDepositError('');
-            setIsDepositOpen(true);
-          }}>Depositar</Button>
-          <Button onClick={() => {
-            setWithdrawError('');
-            setIsWithdrawOpen(true);
-          }}>Retirar</Button>
+      {/* ── Header ── */}
+      <header className='py-2 px-4 border-b-2 border-sky-700 mb-6 flex items-center justify-between'>
+        <div className="flex items-center gap-2">
+          <FaDollarSign className="text-4xl text-green-500" />
+          <h2 className="font-bold text-neutral-100">Dashboard Financiero - Banco Nexus</h2>
         </div>
-      )}
-      <Card className="dashboard-card border-gray-300 p-4 rounded">
-        <div>
-          <CardContent>
-            {loading && <p>Cargando historial...</p>}
-            {error && <p className="error-message">{error}</p>}
-            {!loading && !error && dataGrafico.length === 0 && <p>Ingrese un número de cuenta para ver el historial.</p>}
-            {dataGrafico.length > 0 && (
-              <>
-                <p className='title-name'><strong>{userData.nombre}</strong></p>
-                <LineChart width={500} height={300} data={dataGrafico}>
-                  <Line type="monotone" dataKey="saldo" stroke="#8884d8" />
-                  <CartesianGrid stroke="#ccc" />
-                  <XAxis dataKey="fecha" />
-                  <YAxis />
-                  <Tooltip />
-                </LineChart>
-              </>
-            )}
-          </CardContent>
-        </div>
-      </Card>
+      </header>
 
-      <Modal isOpen={isTransactionsOpen} onClose={() => setIsTransactionsOpen(false)}>
-        <h2>Transacciones de {userData.nombre}</h2>
-        {datos.length === 0 ? (
-          <p>No hay transacciones para mostrar.</p>
-        ) : (
-          <ul>
-            {datos.map((tx, index) => (
-              <li key={index} className="mb-4 p-4 border rounded">
-                <p><strong>Fecha:</strong> {new Date(tx.fecha).toLocaleString()}</p>
-                <p><strong>Tipo:</strong> {tx.tipo}</p>
-                <p><strong>Monto:</strong> ${tx.monto}</p>
-                <p><strong>Descripción:</strong> {tx.descripcion}</p>
-                <p><strong>Sucursal:</strong> {tx.sucursal.sucursal} - {tx.sucursal.direccion}</p>
-                <p><strong>Saldo:</strong> ${tx.saldo}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Modal>
+      <FlashMessages
+        messages={error ? [{ type: 'error', text: error }] : []}
+        open={!!error}
+        onClose={() => setError('')}
+      />
 
-      <Modal isOpen={isDepositOpen} onClose={() => setIsDepositOpen(false)}>
-        <h2>Depósito</h2>
-        <div className="space-y-3">
-          <Input
-            placeholder="Monto"
-            type="number"
-            value={depositMonto}
-            onChange={(e) => setDepositMonto(e.target.value)}
-          />
-          <Input
-            placeholder="Descripción"
-            value={depositDescripcion}
-            onChange={(e) => setDepositDescripcion(e.target.value)}
-          />
-          {depositError && <p className="error-message">{depositError}</p>}
-          <div className="flex justify-end gap-3">
-            <Button onClick={() => setIsDepositOpen(false)}>Cancelar</Button>
-            <Button onClick={handleDeposit}>Confirmar depósito</Button>
+         {/* ── Titulo ── */}
+          <h2 className="text-2xl font-bold text-center text-neutral-100 mb-6">
+            {userData ? `Bienvenido, ${userData.nombre}` : 'Ingrese su número de cuenta para comenzar'}
+          </h2>
+
+      
+         {/* ── Buscador ── */}
+          <div className="flex justify-center gap-3 mb-6 px-4">
+            <div className='flex justify-center items-center'>
+              <Input
+                placeholder="Ingrese su número de cuenta"
+                value={cuenta}
+                onChange={(e) => setCuenta(e.target.value)}
+              />
+            <Button variant="success" onClick={() => cargarHistorial()}>
+              {loading ? 'Cargando...' : 'Consultar'}
+            </Button>
+            </div>
           </div>
-        </div>
-      </Modal>
+          
+          {userData && (
+            <>
+              {/* ── Grid de acciones ── */}
+          <main className='flex justify-center mb-6'>
+            <div className='border border-sky-700 p-6 grid md:grid-cols-2 gap-6 rounded w-full max-w-xl slide'>
 
-      <Modal isOpen={isWithdrawOpen} onClose={() => setIsWithdrawOpen(false)}>
-        <h2>Retiro</h2>
-        <div className="space-y-3">
-          <Input
-            placeholder="Monto"
-            type="number"
-            value={withdrawMonto}
-            onChange={(e) => setWithdrawMonto(e.target.value)}
+              <button
+                onClick={() => { setError(''); setHistorialModalOpen(true); }}
+                className='flex flex-col items-center gap-2 p-4 border border-neutral-700 text-neutral-200 hover:shadow-md hover:shadow-sky-700 hover:border-sky-600 hover:scale-105 transition-all duration-200 cursor-pointer rounded'
+              >
+                <FaWallet className="text-3xl text-sky-400" />
+                <h3 className="font-medium">Consultar Saldo</h3>
+              </button>
+
+              <button
+                onClick={() => setRetirosModalOpen(true)}
+                className='flex flex-col items-center gap-2 p-4 border border-neutral-700 text-neutral-200 hover:shadow-md hover:shadow-red-700 hover:border-red-600 hover:scale-105 transition-all duration-200 cursor-pointer rounded'
+              >
+                <FaArrowCircleDown className="text-3xl text-red-400" />
+                <h3 className="font-medium">Retirar</h3>
+              </button>
+
+              <button
+                onClick={() => setDepositosModalOpen(true)}
+                className='flex flex-col items-center gap-2 p-4 border border-neutral-700 text-neutral-200 hover:shadow-md hover:shadow-green-700 hover:border-green-600 hover:scale-105 transition-all duration-200 cursor-pointer rounded'
+              >
+                <FaMoneyBillWave className="text-3xl text-green-400" />
+                <h3 className="font-medium">Depositar</h3>
+              </button>
+
+              <button
+                onClick={() => { setError(''); setTransferenciasModalOpen(true); }}
+                className='flex flex-col items-center gap-2 p-4 border border-neutral-700 text-neutral-200 hover:shadow-md hover:shadow-sky-700 hover:border-sky-600 hover:scale-105 transition-all duration-200 cursor-pointer rounded'
+              >
+                <FaHistory className="text-3xl text-sky-400" />
+                <h3 className="font-medium">Ver historial</h3>
+              </button>
+
+            </div>
+          </main>
+
+          {/* ── Modales ── */}
+          <ModalConsultarSaldo
+            isOpen={historialModalOpen}
+            onClose={() => setHistorialModalOpen(false)}
+            userData={userData}
+            datos={datos}
+            loading={loading}
+            error={error}
+            dataGrafico={dataGrafico}
+            size={'lg'}
+            onConsultar={async (c) => { await cargarHistorial(c); setHistorialModalOpen(false); }}
           />
-          <Input
-            placeholder="Descripción"
-            value={withdrawDescripcion}
-            onChange={(e) => setWithdrawDescripcion(e.target.value)}
+
+          <ModalRetiro
+            isOpen={retirosModalOpen}
+            onClose={() => setRetirosModalOpen(false)}
+            cuenta={cuenta}
+            onSuccess={() => cargarHistorial()}
           />
-          {withdrawError && <p className="error-message">{withdrawError}</p>}
-          <div className="flex justify-end gap-3">
-              <Button onClick={() => setIsWithdrawOpen(false)}>Cancelar</Button>
-            <Button onClick={handleWithdraw}>Confirmar retiro</Button>
-          </div>
-        </div>
-      </Modal>
+
+          <ModalDeposito
+            isOpen={depositosModalOpen}
+            onClose={() => setDepositosModalOpen(false)}
+            cuenta={cuenta}
+            onSuccess={() => cargarHistorial()}
+          />
+
+          <ModalHistorial
+            isOpen={transferenciasModalOpen}
+            onClose={() => setTransferenciasModalOpen(false)}
+            userData={userData}
+            datos={datos}
+          />
+
+            </>
+          )}
+           
     </div>
   );
 }
