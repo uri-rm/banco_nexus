@@ -1,5 +1,4 @@
 ﻿from datetime import datetime, timezone
-
 from backend.db import get_db
 
 

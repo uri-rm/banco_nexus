@@ -77,3 +77,10 @@ def realizar_retiro(transaccion: Transaccion):
     t["saldo"] = resultado["saldo"]
     db["transacciones"].insert_one(t)
     return {"message": "Retiro realizado exitosamente", "nuevo_saldo": resultado["saldo"]}
+
+
+@router.get("/sucursales")
+def listar_sucursales():
+    db = get_db()
+    docs = list(db["sucursal"].find({}, {"_id": 0}))
+    return docs
