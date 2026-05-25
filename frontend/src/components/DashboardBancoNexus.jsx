@@ -59,18 +59,18 @@ export default function DashboardBancoNexus() {
           <h2 className="font-bold text-neutral-100">Dashboard Financiero - Banco Nexus</h2>
         </div>
       </header>
-
-      <FlashMessages
-        messages={error ? [{ type: 'error', text: error }] : []}
-        open={!!error}
-        onClose={() => setError('')}
-      />
+      <div className="relative w-full max-w-2xl mx-auto mb-6">
+        <FlashMessages
+          messages={error ? [{ type: 'error', text: error }] : []}
+          open={!!error}
+          onClose={() => setError('')}
+        />
+      </div>
 
          {/* ── Titulo ── */}
           <h2 className="text-2xl font-bold text-center text-neutral-100 mb-6">
             {userData ? `Bienvenido, ${userData.nombre}` : 'Ingrese su número de cuenta para comenzar'}
           </h2>
-
       
          {/* ── Buscador ── */}
           <div className="flex justify-center gap-3 mb-6 px-4">

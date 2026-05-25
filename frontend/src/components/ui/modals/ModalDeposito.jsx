@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ export default function ModalDeposito({ isOpen, onClose, cuenta, onSuccess }) {
   const [descripcion, setDescripcion] = useState('');
   const [sucursal,    setSucursal]    = useState('');
   const [direccion,   setDireccion]   = useState('');
+  const [sucursales,  setSucursales]  = useState([]);
   const [error,       setError]       = useState('');
   const [success,     setSuccess]     = useState(false);
   const [loading,     setLoading]     = useState(false);
@@ -19,18 +20,34 @@ export default function ModalDeposito({ isOpen, onClose, cuenta, onSuccess }) {
 
   const handleClose = () => { reset(); setSuccess(false); onClose(); };
 
+  useEffect(() => {
+    // cargar sucursales cuando se abra el modal
+    const load = async () => {
+      try {
+        const res = await axios.get(`${API_BASE_URL}/api/sucursales`);
+        setSucursales(res.data || []);
+      } catch (e) {
+        // no bloquear al usuario si falla la carga
+        console.error('No se pudieron cargar sucursales', e);
+      }
+    };
+    if (isOpen) load();
+  }, [isOpen]);
+
   const handleSubmit = async () => {
     if (!cuenta)                      { setError('No hay cuenta cargada.'); return; }
     if (!monto || Number(monto) <= 0) { setError('Ingrese un monto válido.'); return; }
     try {
       setLoading(true); setError('');
+      // find direccion from selected sucursal if available
+      const sucursalObj = sucursales.find(s => s.sucursal === sucursal) || { direccion };
       await axios.post(`${API_BASE_URL}/api/deposito`, {
         cuenta,
         fecha: new Date().toISOString(),
         tipo: 'deposito',
         monto: Number(monto),
         descripcion,
-        sucursal: { sucursal, direccion },
+        sucursal: { sucursal, direccion: sucursalObj.direccion },
       });
       setSuccess(true);
       onSuccess();
@@ -77,8 +94,29 @@ export default function ModalDeposito({ isOpen, onClose, cuenta, onSuccess }) {
         <div className="space-y-3">
           <Input placeholder="Monto a depositar"     type="number" value={monto}       onChange={(e) => setMonto(e.target.value)} />
           <Input placeholder="Descripción"           value={descripcion}               onChange={(e) => setDescripcion(e.target.value)} />
-          <Input placeholder="Sucursal"              value={sucursal}                  onChange={(e) => setSucursal(e.target.value)} />
-          <Input placeholder="Dirección de sucursal" value={direccion}                 onChange={(e) => setDireccion(e.target.value)} />
+
+          {/* Sucursal select poblado desde API */}
+          <div>
+            <label className="text-neutral-400 text-xs">Sucursal</label>
+            <select
+              className="w-full bg-gray-900 border border-neutral-700 rounded-md px-2 py-1 mt-1 text-neutral-100"
+              value={sucursal}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSucursal(val);
+                const found = sucursales.find(s => s.sucursal === val);
+                setDireccion(found?.direccion || '');
+              }}
+            >
+              <option value="">Seleccione una sucursal</option>
+              {sucursales.map((s) => (
+                <option key={s.sucursal} value={s.sucursal}>{s.sucursal}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Dirección autocompletada (readonly) */}
+          <Input placeholder="Dirección de sucursal" value={direccion} readOnly />
 
           {/* ── Error ── */}
           {error && (
