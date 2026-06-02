@@ -3,3 +3,4 @@ backend/.env
 frontend/src/.env
 frontend/node_modules
 
+db.env
