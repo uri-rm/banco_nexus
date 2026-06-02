@@ -1,21 +1,17 @@
 import { useState } from 'react';
-import axios from 'axios';
+import { createOwnTransaction } from '@/api/conf';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Modal from '@/components/ui/modal';
 import { FaExclamationCircle, FaArrowCircleDown, FaCheckCircle } from 'react-icons/fa';
-import { API_BASE_URL } from '@/config';
 
 export default function ModalRetiro({ isOpen, onClose, cuenta, onSuccess }) {
-  const [monto,       setMonto]       = useState('');
-  const [descripcion, setDescripcion] = useState('');
-  const [sucursal,    setSucursal]    = useState('');
-  const [direccion,   setDireccion]   = useState('');
-  const [error,       setError]       = useState('');
-  const [success,     setSuccess]     = useState(false);
-  const [loading,     setLoading]     = useState(false);
+  const [monto,   setMonto]   = useState('');
+  const [error,   setError]   = useState('');
+  const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const reset = () => { setMonto(''); setDescripcion(''); setSucursal(''); setDireccion(''); setError(''); };
+  const reset = () => { setMonto(''); setError(''); };
 
   const handleClose = () => { reset(); setSuccess(false); onClose(); };
 
@@ -24,13 +20,9 @@ export default function ModalRetiro({ isOpen, onClose, cuenta, onSuccess }) {
     if (!monto || Number(monto) <= 0) { setError('Ingrese un monto válido.'); return; }
     try {
       setLoading(true); setError('');
-      await axios.post(`${API_BASE_URL}/api/retiro`, {
-        cuenta,
-        fecha: new Date().toISOString(),
-        tipo: 'retiro',
-        monto: Number(monto),
-        descripcion,
-        sucursal: { sucursal, direccion },
+      await createOwnTransaction({
+        type: 'withdrawal',
+        amount: Number(monto),
       });
       setSuccess(true);
       onSuccess();
@@ -74,10 +66,7 @@ export default function ModalRetiro({ isOpen, onClose, cuenta, onSuccess }) {
 
         /* ── Formulario ── */
         <div className="space-y-3">
-          <Input placeholder="Monto a retirar"       type="number" value={monto}       onChange={(e) => setMonto(e.target.value)} />
-          <Input placeholder="Descripción"           value={descripcion}               onChange={(e) => setDescripcion(e.target.value)} />
-          <Input placeholder="Sucursal"              value={sucursal}                  onChange={(e) => setSucursal(e.target.value)} />
-          <Input placeholder="Dirección de sucursal" value={direccion}                 onChange={(e) => setDireccion(e.target.value)} />
+          <Input placeholder="Monto a retirar" type="number" value={monto} onChange={(e) => setMonto(e.target.value)} />
 
           {/* ── Error ── */}
           {error && (

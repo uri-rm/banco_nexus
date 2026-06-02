@@ -10,20 +10,29 @@ export default function ModalHistorial({ isOpen, onClose, userData, datos }) {
       ) : (
         <>
           <p className="text-sm text-neutral-400 mb-3">
-            Cliente: <strong className="text-neutral-200">{userData?.nombre}</strong>
+            Cliente: <strong className="text-neutral-200">{userData?.username || userData?.nombre}</strong>
           </p>
           <ul className="max-h-80 overflow-y-auto space-y-2 p-4  rounded">
-            {datos.map((tx, index) => (
-              <li key={index} className="p-3 border border-sky-700 w-120 rounded text-sm text-neutral-300 
+            {datos.map((tx, index) => {
+              const fecha = tx.fecha || tx.date;
+              const tipo = tx.tipo || tx.type;
+              const monto = tx.monto ?? tx.amount;
+              const descripcion = tx.descripcion || tx.description;
+              const saldo = tx.saldo ?? tx.balance_after;
+              const sucursal = tx.sucursal;
+
+              return (
+                <li key={index} className="p-3 border border-sky-700 w-120 rounded text-sm text-neutral-300 
               hover:bg-gray-800 transition duration-75 cursor-pointer">
-                <p><strong>Fecha:</strong>       {new Date(tx.fecha).toLocaleString()}</p>
-                <p><strong>Tipo:</strong>        {tx.tipo}</p>
-                <p><strong>Monto:</strong>       ${tx.monto}</p>
-                <p><strong>Descripción:</strong> {tx.descripcion}</p>
-                <p><strong>Sucursal:</strong>    {tx.sucursal?.sucursal} - {tx.sucursal?.direccion}</p>
-                <p><strong>Saldo:</strong>       ${tx.saldo}</p>
-              </li>
-            ))}
+                  <p><strong>Fecha:</strong>       {fecha ? new Date(fecha).toLocaleString() : 'N/A'}</p>
+                  <p><strong>Tipo:</strong>        {tipo || 'N/A'}</p>
+                  <p><strong>Monto:</strong>       ${monto ?? 'N/A'}</p>
+                  <p><strong>Descripción:</strong> {descripcion || 'N/A'}</p>
+                  <p><strong>Sucursal:</strong>    {sucursal?.sucursal ?? 'N/A'}{sucursal?.direccion ? ` - ${sucursal.direccion}` : ''}</p>
+                  <p><strong>Saldo:</strong>       ${saldo ?? 'N/A'}</p>
+                </li>
+              );
+            })}
           </ul>
         </>
       )}
