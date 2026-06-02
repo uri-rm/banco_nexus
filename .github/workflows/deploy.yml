@@ -42,6 +42,8 @@ jobs:
           script: |
             cd ~/banco_nexus
             git pull origin proyecto_computo_nube
-            export IMAGE_TAG=${{ github.sha }}
-            set -a; source db.env; set +a
-            docker stack deploy -c docker-stack.yml nexus --with-registry-auth
+            set -a
+            source db.env
+            set +a
+            echo "Desplegando con IMAGE_TAG=${{ github.sha }}"
+            IMAGE_TAG=${{ github.sha }} docker stack deploy -c docker-stack.yml nexus --with-registry-auth
