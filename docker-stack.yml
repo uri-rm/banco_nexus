@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   backend:
-    image: stella101/nexus-backend:{IMAGE_TAG}
+    image: stella101/nexus-backend:${IMAGE_TAG}
     environment:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
@@ -27,7 +27,7 @@ services:
         condition: on-failure
 
   frontend:
-    image: stella101/nexus-frontend:{IMAGE_TAG}
+    image: stella101/nexus-frontend:${IMAGE_TAG}
     networks: [nexus-net]
     ports:
       - "80:80"
