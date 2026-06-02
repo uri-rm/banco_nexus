@@ -28,7 +28,7 @@ async def auth(data: LoginRequest,
         raise HTTPException(detail="User doesn't exist", status_code=404)
 
     if not verify_password(data.password, user.password):
-        background_tasks.add_task(audit.login_failed, data.email)
+        audit.login_failed(data.email)
         raise HTTPException(detail="Invalid credentials", status_code=401)
 
     token = create_access_token(data={"sub": user.email})

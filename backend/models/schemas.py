@@ -74,8 +74,9 @@ class TransactionType(str, enum.Enum):
 class EventAction(str, enum.Enum):
     LOGIN_SUCCESS     = "login_exitoso"
     LOGIN_FAILED      = "login_fallido"
-    TRANSFER_APPROVED = "transferencia_aprobada"
-    TRANSFER_ACCEPTED = "transferencia_aceptada"
+    TRANSFER_APPROVED  = "transferencia_aprobada"
+    TRANSFER_ACCEPTED  = "transferencia_aceptada"
+    TRANSFER_REJECTED  = "transferencia_rechazada"
     ACCOUNT_CREATED   = "alta_de_cuenta"
     LOGOUT            = "logout"
     DEPOSIT           = "deposito"

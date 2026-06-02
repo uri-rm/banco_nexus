@@ -55,6 +55,16 @@ class AuditService:
             **client
         ))
 
+    def transfer_failed(self, user, detail: str, **client):
+        self.log(AuditLogCreate(
+            user_id=user.id if user else None,
+            username=user.username if user else None,
+            action=EventAction.TRANSFER_REJECTED,
+            status=EventStatus.FAILED,
+            detail=detail,
+            **client
+        ))
+
     def transfer_approved(self, user, detail: dict, **client):
         self.log(AuditLogCreate(
             user_id=user.id,
