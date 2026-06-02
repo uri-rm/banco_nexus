@@ -1,139 +1,128 @@
-﻿from datetime import datetime, timezone
-from backend.db import get_db
+from datetime import datetime, timezone, timedelta
+from decimal import Decimal
+from sqlmodel import Session, select
+from sqlalchemy import delete
+from backend.db import engine, create_db
+from backend.models.models import User, Transaction, DestinyAccount, AuditLog
+from backend.models.schemas import TransactionType, EventAction, EventStatus
+from backend.security.hasher import hash_password
 
 
-def _utc(date_str: str) -> datetime:
-    return datetime.fromisoformat(date_str).astimezone(timezone.utc)
+def generate_account_number(user_id: int) -> str:
+    base = f"180{user_id:06d}"
+    check_digit = sum(int(d) for d in base) % 10
+    return base + str(check_digit)
 
 
-def seed_data() -> None:
-    db = get_db()
+def utc(days_ago: int, hour: int = 10, minute: int = 0) -> datetime:
+    return datetime.now(timezone.utc) - timedelta(days=days_ago, hours=-hour, minutes=-minute)
 
-    clientes = db["clientes"]
-    cuentas = db["cuentas"]
-    transacciones = db["transacciones"]
-    sucursal = db["sucursal"]
 
-    clientes.delete_many({})
-    cuentas.delete_many({})
-    transacciones.delete_many({})
-    sucursal.delete_many({})
+def seed():
+    create_db()
 
-    clientes.insert_many([
-        {"nombre": "Ana Ruiz",        "curp": "RUAA900101MDFXXX01"},
-        {"nombre": "Luis PÃ©rez",       "curp": "RELU850203HDFXXX02"},
-        {"nombre": "MarÃ­a GonzÃ¡lez",   "curp": "GOMM920415MDFXXX03"},
-        {"nombre": "Carlos HernÃ¡ndez", "curp": "HECC880720HDFXXX04"},
-        {"nombre": "SofÃ­a Torres",     "curp": "TOSS950312MDFXXX05"},
-        {"nombre": "Jorge RamÃ­rez",    "curp": "RAJJ910630HDFXXX06"},
-        {"nombre": "Valeria LÃ³pez",    "curp": "LOVV001118MDFXXX07"},
-        {"nombre": "Diego Morales",    "curp": "MODD870914HDFXXX08"},
-        {"nombre": "Fernanda Castro",  "curp": "CAFF930225MDFXXX09"},
-        {"nombre": "AndrÃ©s JimÃ©nez",   "curp": "JIAA960507HDFXXX10"},
-        {"nombre": "LucÃ­a Mendoza",    "curp": "MELL780811MDFXXX11"},
-        {"nombre": "Roberto Vargas",   "curp": "VARR830429HDFXXX12"},
-    ])
+    with Session(engine) as session:
+        # Limpia tablas en orden correcto (FK: audit_logs y transactions antes que users)
+        session.execute(delete(AuditLog))
+        session.execute(delete(Transaction))
+        session.execute(delete(DestinyAccount))
+        session.execute(delete(User))
+        session.commit()
 
-    cuentas_data = [
-        {"cuenta": "001", "cliente": "RUAA900101MDFXXX01", "saldo": 5000},
-        {"cuenta": "002", "cliente": "RELU850203HDFXXX02", "saldo": 8000},
-        {"cuenta": "003", "cliente": "GOMM920415MDFXXX03", "saldo": 12000},
-        {"cuenta": "004", "cliente": "HECC880720HDFXXX04", "saldo": 3500},
-        {"cuenta": "005", "cliente": "TOSS950312MDFXXX05", "saldo": 7200},
-        {"cuenta": "006", "cliente": "RAJJ910630HDFXXX06", "saldo": 15000},
-        {"cuenta": "007", "cliente": "LOVV001118MDFXXX07", "saldo":  900},
-        {"cuenta": "008", "cliente": "MODD870914HDFXXX08", "saldo": 4300},
-        {"cuenta": "009", "cliente": "CAFF930225MDFXXX09", "saldo": 6750},
-        {"cuenta": "010", "cliente": "JIAA960507HDFXXX10", "saldo": 2100},
-        {"cuenta": "011", "cliente": "MELL780811MDFXXX11", "saldo": 9800},
-        {"cuenta": "012", "cliente": "VARR830429HDFXXX12", "saldo": 5500},
-    ]
-    cuentas.insert_many(cuentas_data)
+        # --- Usuarios ---
+        usuarios_data = [
+            {"username": "ana_ruiz",      "email": "ana@nexus.com",      "password": "Ana1234!",    "balance": 5000.00},
+            {"username": "luis_perez",    "email": "luis@nexus.com",     "password": "Luis1234!",   "balance": 8000.00},
+            {"username": "maria_gzz",     "email": "maria@nexus.com",    "password": "Maria1234!",  "balance": 12000.00},
+            {"username": "carlos_hdz",    "email": "carlos@nexus.com",   "password": "Carlos1234!", "balance": 3500.00},
+            {"username": "sofia_torres",  "email": "sofia@nexus.com",    "password": "Sofia1234!",  "balance": 7200.00},
+        ]
 
-    transacciones_data = [
-        # --- Cuenta 001 (Ana Ruiz) saldo inicial: 3020 ---
-        {"cuenta": "001", "fecha": _utc("2026-05-01T10:15:00+00:00"), "tipo": "deposito", "monto": 2500, "saldo": 5520, "descripcion": "DepÃ³sito nÃ³mina",        "sucursal": {"sucursal": "Central", "direccion": "Av. Principal 123, Ciudad"}},
-        {"cuenta": "001", "fecha": _utc("2026-05-03T14:30:00+00:00"), "tipo": "retiro",   "monto":  400, "saldo": 5120, "descripcion": "Pago de servicios",       "sucursal": {"sucursal": "Norte",   "direccion": "Calle Norte 456, Ciudad"}},
-        {"cuenta": "001", "fecha": _utc("2026-05-05T09:00:00+00:00"), "tipo": "retiro",   "monto":  120, "saldo": 5000, "descripcion": "Compra en supermercado",  "sucursal": {"sucursal": "Sur",     "direccion": "Calle Sur 789, Ciudad"}},
+        users = []
+        for data in usuarios_data:
+            user = User(
+                username=data["username"],
+                email=data["email"],
+                password=hash_password(data["password"]),
+                number="pending",
+                balance=data["balance"],
+            )
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+            user.number = generate_account_number(user.id)
+            session.commit()
+            session.refresh(user)
+            users.append(user)
 
-        # --- Cuenta 002 (Luis PÃ©rez) saldo inicial: 5870 ---
-        {"cuenta": "002", "fecha": _utc("2026-05-02T11:45:00+00:00"), "tipo": "deposito", "monto": 3000, "saldo": 8870, "descripcion": "Transferencia recibida", "sucursal": {"sucursal": "Este",    "direccion": "Calle Este 321, Ciudad"}},
-        {"cuenta": "002", "fecha": _utc("2026-05-04T16:20:00+00:00"), "tipo": "retiro",   "monto":  650, "saldo": 8220, "descripcion": "Compra en tienda",        "sucursal": {"sucursal": "Oeste",   "direccion": "Calle Oeste 654, Ciudad"}},
-        {"cuenta": "002", "fecha": _utc("2026-05-06T08:30:00+00:00"), "tipo": "retiro",   "monto":  220, "saldo": 8000, "descripcion": "Pago de gasolina",        "sucursal": {"sucursal": "Central", "direccion": "Av. Principal 123, Ciudad"}},
+        ana, luis, maria, carlos, sofia = users
 
-        # --- Cuenta 003 (MarÃ­a GonzÃ¡lez) saldo inicial: 8100 ---
-        {"cuenta": "003", "fecha": _utc("2026-05-01T08:00:00+00:00"), "tipo": "deposito", "monto": 5000, "saldo": 13100, "descripcion": "DepÃ³sito nÃ³mina",       "sucursal": {"sucursal": "Norte",   "direccion": "Calle Norte 456, Ciudad"}},
-        {"cuenta": "003", "fecha": _utc("2026-05-02T13:00:00+00:00"), "tipo": "retiro",   "monto":  800, "saldo": 12300, "descripcion": "Pago renta",             "sucursal": {"sucursal": "Sur",     "direccion": "Calle Sur 789, Ciudad"}},
-        {"cuenta": "003", "fecha": _utc("2026-05-05T17:45:00+00:00"), "tipo": "retiro",   "monto":  300, "saldo": 12000, "descripcion": "Restaurante",            "sucursal": {"sucursal": "Este",    "direccion": "Calle Este 321, Ciudad"}},
+        # --- Cuentas destino (contactos guardados) ---
+        destiny_accounts = [
+            DestinyAccount(name="Luis Pérez",    number_user=luis.number,   user_id=ana.id),
+            DestinyAccount(name="María González", number_user=maria.number,  user_id=ana.id),
+            DestinyAccount(name="Ana Ruiz",       number_user=ana.number,    user_id=luis.id),
+            DestinyAccount(name="Carlos Hdz",     number_user=carlos.number, user_id=sofia.id),
+        ]
+        for da in destiny_accounts:
+            session.add(da)
+        session.commit()
 
-        # --- Cuenta 004 (Carlos HernÃ¡ndez) saldo inicial: 2650 ---
-        {"cuenta": "004", "fecha": _utc("2026-05-01T09:30:00+00:00"), "tipo": "deposito", "monto": 1500, "saldo": 4150, "descripcion": "DepÃ³sito en ventanilla", "sucursal": {"sucursal": "Oeste",   "direccion": "Calle Oeste 654, Ciudad"}},
-        {"cuenta": "004", "fecha": _utc("2026-05-03T11:00:00+00:00"), "tipo": "retiro",   "monto":  200, "saldo": 3950, "descripcion": "Retiro en cajero",        "sucursal": {"sucursal": "Central", "direccion": "Av. Principal 123, Ciudad"}},
-        {"cuenta": "004", "fecha": _utc("2026-05-06T15:00:00+00:00"), "tipo": "retiro",   "monto":  450, "saldo": 3500, "descripcion": "Pago de luz",             "sucursal": {"sucursal": "Norte",   "direccion": "Calle Norte 456, Ciudad"}},
+        # --- Transacciones ---
+        transactions = [
+            # Ana: depósito inicial + transferencia a Luis
+            Transaction(user_id=ana.id, type=TransactionType.DEPOSIT,    amount=Decimal("2500"), balance_after=Decimal("5000"), description="Depósito nómina",        date=utc(10)),
+            Transaction(user_id=ana.id, type=TransactionType.WITHDRAWAL,  amount=Decimal("400"),  balance_after=Decimal("4600"), description="Pago de servicios",      date=utc(8)),
+            Transaction(user_id=ana.id, type=TransactionType.TRANSFER,    amount=Decimal("500"),  balance_after=Decimal("4100"), description=f"Transferencia a {luis.number}", date=utc(5), target_user_id=luis.id),
 
-        # --- Cuenta 005 (SofÃ­a Torres) saldo inicial: 4500 ---
-        {"cuenta": "005", "fecha": _utc("2026-05-02T10:00:00+00:00"), "tipo": "deposito", "monto": 2200, "saldo": 6700, "descripcion": "Transferencia recibida", "sucursal": {"sucursal": "Sur",     "direccion": "Calle Sur 789, Ciudad"}},
-        {"cuenta": "005", "fecha": _utc("2026-05-04T12:30:00+00:00"), "tipo": "retiro",   "monto":  500, "saldo": 6200, "descripcion": "Compra en lÃ­nea",         "sucursal": {"sucursal": "Este",    "direccion": "Calle Este 321, Ciudad"}},
-        {"cuenta": "005", "fecha": _utc("2026-05-07T08:00:00+00:00"), "tipo": "deposito", "monto": 1000, "saldo": 7200, "descripcion": "DepÃ³sito nÃ³mina",        "sucursal": {"sucursal": "Oeste",   "direccion": "Calle Oeste 654, Ciudad"}},
+            # Luis: recibe transferencia + retiro
+            Transaction(user_id=luis.id, type=TransactionType.DEPOSIT,   amount=Decimal("3000"), balance_after=Decimal("8000"), description="Depósito nómina",        date=utc(12)),
+            Transaction(user_id=luis.id, type=TransactionType.TRANSFER,   amount=Decimal("500"),  balance_after=Decimal("8500"), description=f"Recibido de {ana.number}", date=utc(5), target_user_id=ana.id),
+            Transaction(user_id=luis.id, type=TransactionType.WITHDRAWAL, amount=Decimal("650"),  balance_after=Decimal("7850"), description="Compra en tienda",       date=utc(3)),
 
-        # --- Cuenta 006 (Jorge RamÃ­rez) saldo inicial: 8800 ---
-        {"cuenta": "006", "fecha": _utc("2026-05-01T07:45:00+00:00"), "tipo": "deposito", "monto": 8000, "saldo": 16800, "descripcion": "DepÃ³sito nÃ³mina",       "sucursal": {"sucursal": "Central", "direccion": "Av. Principal 123, Ciudad"}},
-        {"cuenta": "006", "fecha": _utc("2026-05-03T10:15:00+00:00"), "tipo": "retiro",   "monto": 1200, "saldo": 15600, "descripcion": "Pago hipoteca",          "sucursal": {"sucursal": "Norte",   "direccion": "Calle Norte 456, Ciudad"}},
-        {"cuenta": "006", "fecha": _utc("2026-05-05T14:00:00+00:00"), "tipo": "retiro",   "monto":  600, "saldo": 15000, "descripcion": "Compra supermercado",    "sucursal": {"sucursal": "Sur",     "direccion": "Calle Sur 789, Ciudad"}},
+            # María
+            Transaction(user_id=maria.id, type=TransactionType.DEPOSIT,  amount=Decimal("5000"), balance_after=Decimal("12000"), description="Depósito nómina",       date=utc(15)),
+            Transaction(user_id=maria.id, type=TransactionType.WITHDRAWAL,amount=Decimal("800"),  balance_after=Decimal("11200"), description="Pago renta",            date=utc(7)),
+            Transaction(user_id=maria.id, type=TransactionType.WITHDRAWAL,amount=Decimal("300"),  balance_after=Decimal("10900"), description="Restaurante",           date=utc(2)),
 
-        # --- Cuenta 007 (Valeria LÃ³pez) saldo inicial: 630 ---
-        {"cuenta": "007", "fecha": _utc("2026-05-03T09:00:00+00:00"), "tipo": "deposito", "monto":  500, "saldo": 1130, "descripcion": "DepÃ³sito en efectivo",   "sucursal": {"sucursal": "Este",    "direccion": "Calle Este 321, Ciudad"}},
-        {"cuenta": "007", "fecha": _utc("2026-05-05T16:00:00+00:00"), "tipo": "retiro",   "monto":  150, "saldo":  980, "descripcion": "Pago de internet",        "sucursal": {"sucursal": "Oeste",   "direccion": "Calle Oeste 654, Ciudad"}},
-        {"cuenta": "007", "fecha": _utc("2026-05-07T11:30:00+00:00"), "tipo": "retiro",   "monto":   80, "saldo":  900, "descripcion": "Compra farmacia",         "sucursal": {"sucursal": "Central", "direccion": "Av. Principal 123, Ciudad"}},
+            # Carlos
+            Transaction(user_id=carlos.id, type=TransactionType.DEPOSIT, amount=Decimal("1500"), balance_after=Decimal("3500"), description="Depósito en ventanilla", date=utc(9)),
+            Transaction(user_id=carlos.id, type=TransactionType.WITHDRAWAL,amount=Decimal("200"), balance_after=Decimal("3300"), description="Retiro en cajero",       date=utc(6)),
 
-        # --- Cuenta 008 (Diego Morales) saldo inicial: 3125 ---
-        {"cuenta": "008", "fecha": _utc("2026-05-01T08:30:00+00:00"), "tipo": "deposito", "monto": 1800, "saldo": 4925, "descripcion": "DepÃ³sito nÃ³mina",        "sucursal": {"sucursal": "Norte",   "direccion": "Calle Norte 456, Ciudad"}},
-        {"cuenta": "008", "fecha": _utc("2026-05-04T13:45:00+00:00"), "tipo": "retiro",   "monto":  350, "saldo": 4575, "descripcion": "Pago de agua",            "sucursal": {"sucursal": "Sur",     "direccion": "Calle Sur 789, Ciudad"}},
-        {"cuenta": "008", "fecha": _utc("2026-05-06T10:00:00+00:00"), "tipo": "retiro",   "monto":  275, "saldo": 4300, "descripcion": "Gasolina",               "sucursal": {"sucursal": "Este",    "direccion": "Calle Este 321, Ciudad"}},
+            # Sofía
+            Transaction(user_id=sofia.id, type=TransactionType.DEPOSIT,  amount=Decimal("2200"), balance_after=Decimal("7200"), description="Transferencia recibida",  date=utc(11)),
+            Transaction(user_id=sofia.id, type=TransactionType.WITHDRAWAL,amount=Decimal("500"),  balance_after=Decimal("6700"), description="Compra en línea",        date=utc(4)),
+        ]
+        for tx in transactions:
+            session.add(tx)
+        session.commit()
 
-        # --- Cuenta 009 (Fernanda Castro) saldo inicial: 4440 ---
-        {"cuenta": "009", "fecha": _utc("2026-05-02T09:15:00+00:00"), "tipo": "deposito", "monto": 3200, "saldo": 7640, "descripcion": "Transferencia recibida", "sucursal": {"sucursal": "Oeste",   "direccion": "Calle Oeste 654, Ciudad"}},
-        {"cuenta": "009", "fecha": _utc("2026-05-04T14:00:00+00:00"), "tipo": "retiro",   "monto":  700, "saldo": 6940, "descripcion": "Pago tarjeta crÃ©dito",   "sucursal": {"sucursal": "Central", "direccion": "Av. Principal 123, Ciudad"}},
-        {"cuenta": "009", "fecha": _utc("2026-05-06T17:00:00+00:00"), "tipo": "retiro",   "monto":  190, "saldo": 6750, "descripcion": "Suscripciones",          "sucursal": {"sucursal": "Norte",   "direccion": "Calle Norte 456, Ciudad"}},
+        # --- Audit logs ---
+        audit_logs = [
+            AuditLog(user_id=ana.id,    username=ana.username,    action=EventAction.ACCOUNT_CREATED,   status=EventStatus.SUCCESS, detail="Cuenta creada",             timestamp=utc(10)),
+            AuditLog(user_id=luis.id,   username=luis.username,   action=EventAction.ACCOUNT_CREATED,   status=EventStatus.SUCCESS, detail="Cuenta creada",             timestamp=utc(12)),
+            AuditLog(user_id=maria.id,  username=maria.username,  action=EventAction.ACCOUNT_CREATED,   status=EventStatus.SUCCESS, detail="Cuenta creada",             timestamp=utc(15)),
+            AuditLog(user_id=carlos.id, username=carlos.username, action=EventAction.ACCOUNT_CREATED,   status=EventStatus.SUCCESS, detail="Cuenta creada",             timestamp=utc(9)),
+            AuditLog(user_id=sofia.id,  username=sofia.username,  action=EventAction.ACCOUNT_CREATED,   status=EventStatus.SUCCESS, detail="Cuenta creada",             timestamp=utc(11)),
+            AuditLog(user_id=ana.id,    username=ana.username,    action=EventAction.LOGIN_SUCCESS,      status=EventStatus.SUCCESS, detail="Login exitoso",             timestamp=utc(5)),
+            AuditLog(user_id=ana.id,    username=ana.username,    action=EventAction.TRANSFER_APPROVED,  status=EventStatus.SUCCESS, detail=f"Transferencia a {luis.number}", user_involved=luis.username, timestamp=utc(5)),
+            AuditLog(user_id=luis.id,   username=luis.username,   action=EventAction.LOGIN_SUCCESS,      status=EventStatus.SUCCESS, detail="Login exitoso",             timestamp=utc(3)),
+            AuditLog(user_id=maria.id,  username=maria.username,  action=EventAction.LOGIN_FAILED,       status=EventStatus.FAILED,  detail="Contraseña incorrecta",     timestamp=utc(1)),
+            AuditLog(user_id=maria.id,  username=maria.username,  action=EventAction.LOGIN_SUCCESS,      status=EventStatus.SUCCESS, detail="Login exitoso",             timestamp=utc(1)),
+        ]
+        for log in audit_logs:
+            session.add(log)
+        session.commit()
 
-        # --- Cuenta 010 (AndrÃ©s JimÃ©nez) saldo inicial: 1550 ---
-        {"cuenta": "010", "fecha": _utc("2026-05-01T11:00:00+00:00"), "tipo": "deposito", "monto":  900, "saldo": 2450, "descripcion": "DepÃ³sito en ventanilla", "sucursal": {"sucursal": "Sur",     "direccion": "Calle Sur 789, Ciudad"}},
-        {"cuenta": "010", "fecha": _utc("2026-05-03T15:30:00+00:00"), "tipo": "retiro",   "monto":  250, "saldo": 2200, "descripcion": "Retiro cajero",           "sucursal": {"sucursal": "Este",    "direccion": "Calle Este 321, Ciudad"}},
-        {"cuenta": "010", "fecha": _utc("2026-05-07T09:45:00+00:00"), "tipo": "retiro",   "monto":  100, "saldo": 2100, "descripcion": "Pago de transporte",      "sucursal": {"sucursal": "Oeste",   "direccion": "Calle Oeste 654, Ciudad"}},
-
-        # --- Cuenta 011 (LucÃ­a Mendoza) saldo inicial: 6720 ---
-        {"cuenta": "011", "fecha": _utc("2026-05-01T07:00:00+00:00"), "tipo": "deposito", "monto": 4500, "saldo": 11220, "descripcion": "DepÃ³sito nÃ³mina",       "sucursal": {"sucursal": "Central", "direccion": "Av. Principal 123, Ciudad"}},
-        {"cuenta": "011", "fecha": _utc("2026-05-03T12:00:00+00:00"), "tipo": "retiro",   "monto": 1000, "saldo": 10220, "descripcion": "Pago renta",             "sucursal": {"sucursal": "Norte",   "direccion": "Calle Norte 456, Ciudad"}},
-        {"cuenta": "011", "fecha": _utc("2026-05-05T16:30:00+00:00"), "tipo": "retiro",   "monto":  420, "saldo":  9800, "descripcion": "Compra en lÃ­nea",        "sucursal": {"sucursal": "Sur",     "direccion": "Calle Sur 789, Ciudad"}},
-
-        # --- Cuenta 012 (Roberto Vargas) saldo inicial: 4360 ---
-        {"cuenta": "012", "fecha": _utc("2026-05-02T08:45:00+00:00"), "tipo": "deposito", "monto": 2000, "saldo": 6360, "descripcion": "Transferencia recibida", "sucursal": {"sucursal": "Este",    "direccion": "Calle Este 321, Ciudad"}},
-        {"cuenta": "012", "fecha": _utc("2026-05-04T11:30:00+00:00"), "tipo": "retiro",   "monto":  550, "saldo": 5810, "descripcion": "Compra supermercado",    "sucursal": {"sucursal": "Oeste",   "direccion": "Calle Oeste 654, Ciudad"}},
-        {"cuenta": "012", "fecha": _utc("2026-05-06T14:15:00+00:00"), "tipo": "retiro",   "monto":  310, "saldo": 5500, "descripcion": "Pago servicios",         "sucursal": {"sucursal": "Central", "direccion": "Av. Principal 123, Ciudad"}},
-    ]
-
-    transacciones.insert_many(transacciones_data)
-
-    final_saldos_por_cuenta = {}
-    for transaccion in transacciones_data:
-        cuenta = transaccion["cuenta"]
-        if cuenta not in final_saldos_por_cuenta or transaccion["fecha"] > final_saldos_por_cuenta[cuenta]["fecha"]:
-            final_saldos_por_cuenta[cuenta] = {"fecha": transaccion["fecha"], "saldo": transaccion["saldo"]}
-
-    for cuenta, datos in final_saldos_por_cuenta.items():
-        cuentas.update_one({"cuenta": cuenta}, {"$set": {"saldo": datos["saldo"]}})
-
-    sucursal.insert_many([
-        {"sucursal": "Central", "direccion": "Av. Principal 123, Ciudad"},
-        {"sucursal": "Norte",   "direccion": "Calle Norte 456, Ciudad"},
-        {"sucursal": "Sur",     "direccion": "Calle Sur 789, Ciudad"},
-        {"sucursal": "Este",    "direccion": "Calle Este 321, Ciudad"},
-        {"sucursal": "Oeste",   "direccion": "Calle Oeste 654, Ciudad"},
-    ])
-
-    print("Base de datos inicial creada con Ã©xito.")
+        print("\nSeed completado:")
+        print(f"  {len(users)} usuarios")
+        print(f"  {len(destiny_accounts)} cuentas destino")
+        print(f"  {len(transactions)} transacciones")
+        print(f"  {len(audit_logs)} registros de auditoría")
+        print("\nCredenciales de prueba:")
+        for u, d in zip(users, usuarios_data):
+            print(f"  {u.email} / {d['password']}  (cuenta: {u.number})")
 
 
 if __name__ == "__main__":
-    seed_data()
-
+    seed()
