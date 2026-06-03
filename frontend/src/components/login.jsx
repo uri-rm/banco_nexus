@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FaDollarSign, FaEnvelope, FaLock, FaEye, FaEyeSlash, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
 import { login } from '@/api/conf';
 
-export default function LoginBancoNexus({ onLoginSuccess }) {
+export default function LoginBancoNexus({ onLoginSuccess, onGoToRegister }) {
   const navigate = useNavigate();
   const [email,     setEmail]     = useState('');
   const [password,  setPassword]  = useState('');
@@ -144,6 +144,19 @@ export default function LoginBancoNexus({ onLoginSuccess }) {
               {loading ? 'Verifying...' : 'Sign in'}
             </button>
           </div>
+
+          {/* Go to register */}
+          {onGoToRegister && (
+            <p className="text-center text-xs text-neutral-500 mt-4 mb-2">
+              Don't have an account?{' '}
+              <button
+                onClick={onGoToRegister}
+                className="text-sky-400 hover:text-sky-300 transition-colors"
+              >
+                Create one
+              </button>
+            </p>
+          )}
 
           {/* Footer */}
           <div className="px-6 py-3 mt-4 border-t border-neutral-800 text-center">

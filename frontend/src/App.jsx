@@ -1,5 +1,5 @@
 import DashboardBancoNexus from '@/components/DashboardBancoNexus';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Register from '@/components/register';
 import Login from '@/components/login';
 
@@ -14,6 +14,8 @@ const PublicRoute = ({ children }) => {
 };
 
 export default function App() {
+  const navigate = useNavigate();
+
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       <Routes>
@@ -25,8 +27,8 @@ export default function App() {
             </PrivateRoute>
           }
         />
-        <Route path="/" element={<PublicRoute><Register /></PublicRoute>} />
-        <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+        <Route path="/" element={<PublicRoute><Register onGoToLogin={() => navigate('/login')} /></PublicRoute>} />
+        <Route path="/login" element={<PublicRoute><Login onGoToRegister={() => navigate('/')} /></PublicRoute>} />
       </Routes>
     </div>
   );
