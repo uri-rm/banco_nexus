@@ -98,7 +98,7 @@ export default function DashboardBancoNexus() {
       <header className='py-2 px-4 border-b-2 border-sky-700 mb-6 flex items-center justify-between'>
         <div className="flex items-center gap-2">
           <FaDollarSign className="text-4xl text-green-500" />
-          <h2 className="font-bold text-neutral-100">Dashboard Financiero Banco Nexus</h2>
+          <h2 className="font-bold text-neutral-100">Dashboard Financiero - Banco Nexus</h2>
         </div>
         <button
           onClick={handleLogout}
