@@ -219,6 +219,7 @@ export default function DashboardBancoNexus() {
             sourceAccount={userData ? userData.number : ''}
             destinyReload={destinyReload}
             onSuccess={() => cargarHistorial()}
+            onOpenAgregarCuenta={() => { setTransferenciaModalOpen(false); setAgregarCuentaOpen(true); }}
           />
 
           <ModalAgregarCuenta

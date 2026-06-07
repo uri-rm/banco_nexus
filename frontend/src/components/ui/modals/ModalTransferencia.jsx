@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import Modal from '@/components/ui/modal';
 import { FaExchangeAlt, FaCheckCircle, FaExclamationCircle } from 'react-icons/fa';
 
-export default function ModalTransferencia({ isOpen, onClose, onSuccess, sourceAccount, destinyReload }) {
+export default function ModalTransferencia({ isOpen, onClose, onSuccess, sourceAccount, destinyReload, onOpenAgregarCuenta }) {
   const [destinyAccount, setDestinyAccount] = useState('');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -172,7 +172,7 @@ export default function ModalTransferencia({ isOpen, onClose, onSuccess, sourceA
           ) : (
             <div className="flex flex-col items-center gap-3 py-4 text-center">
                 <p className="text-neutral-400 text-sm">No tienes cuentas destino agregadas.</p>
-                <p className="text-neutral-500 text-xs">Ve a <strong className="text-sky-400">Agregar destino</strong> para añadir una cuenta.</p>
+                <p className="text-neutral-500 text-xs">Ve a <button onClick={onOpenAgregarCuenta} className="text-sky-400 font-bold hover:underline cursor-pointer">Agregar destino</button> para añadir una cuenta.</p>
             </div>
           )}
          
