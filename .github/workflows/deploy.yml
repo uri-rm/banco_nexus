@@ -2,7 +2,7 @@ name: CI/CD Banco Nexus
 
 on:
   push:
-    branches: [proyecto_computo_nube]
+    branches: [backend_express]
 
 jobs:
   build-and-deploy:
