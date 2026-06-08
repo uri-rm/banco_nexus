@@ -45,5 +45,6 @@ jobs:
             set -a
             source db.env
             set +a
+            export JWT_SECRET="${{ secrets.JWT_SECRET }}"
             echo "Desplegando con IMAGE_TAG=${{ github.sha }}"
             IMAGE_TAG=${{ github.sha }} docker stack deploy -c docker-stack.yml nexus --with-registry-auth
