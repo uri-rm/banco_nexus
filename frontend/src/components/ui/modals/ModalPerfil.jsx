@@ -83,9 +83,7 @@ export default function ModalPerfil({ isOpen, onClose, onSuccess }) {
       await updateMe(payload);
       setSuccess(true);
       onSuccess?.();
-      localStorage.removeItem('user');
-      localStorage.removeItem('token');
-      window.location.href = '/login';
+      setTimeout(() => { handleClose(); }, 1500);
     } catch (err) {
       setError(err.response?.data?.detail || err.message || 'Error al actualizar los datos.');
     } finally {
