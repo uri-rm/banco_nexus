@@ -41,10 +41,12 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           script: |
             cd ~/banco_nexus
-            git pull origin proyecto_computo_nube
+            git pull origin backend_express
             set -a
             source db.env
             set +a
             export JWT_SECRET="${{ secrets.JWT_SECRET }}"
+            if [ -z "$JWT_SECRET" ]; then echo "ERROR: JWT_SECRET esta vacio"; exit 1; fi
+            echo "JWT_SECRET OK (${#JWT_SECRET} chars)"
             echo "Desplegando con IMAGE_TAG=${{ github.sha }}"
             IMAGE_TAG=${{ github.sha }} docker stack deploy -c docker-stack.yml nexus --with-registry-auth
