@@ -180,7 +180,7 @@ export default function DashboardBancoNexus() {
                 className='flex flex-col items-center gap-2 p-4 border border-neutral-700 text-neutral-200 hover:shadow-md hover:shadow-sky-700 hover:border-sky-600 hover:scale-105 transition-all duration-200 cursor-pointer rounded'
               >
                 <FaHistory className="text-3xl text-sky-400" />
-                <h3 className="font-medium">Ver historial</h3>
+                <h3 className="font-medium">Ver Historial</h3>
               </button>
 
             </div>
