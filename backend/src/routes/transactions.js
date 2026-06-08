@@ -1,9 +1,17 @@
 const router = require('express').Router();
+const { body } = require('express-validator');
 const db = require('../db');
 const auth = require('../middleware/auth');
+const validate = require('../middleware/validate');
 const { validateAccountNumber } = require('../helpers/validation');
 const { transfer } = require('../services/transferService');
 const audit = require('../services/auditService');
+
+const txRules = [
+  body('type').notEmpty().withMessage('El tipo de operación es requerido'),
+  body('amount').isFloat({ gt: 0 }).withMessage('El monto debe ser un número mayor a 0'),
+  body('description').optional().trim(),
+];
 
 const txFields = ['id', 'date', 'type', 'amount', 'balance_after', 'description'];
 
@@ -20,7 +28,7 @@ router.get('/', auth, async (req, res) => {
 });
 
 // POST /transactions/  (depósito o retiro propio)
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, txRules, validate, async (req, res) => {
   try {
     const { type, amount, description } = req.body;
     const user = await db('users').where({ id: req.user.id }).first();
@@ -58,7 +66,7 @@ router.post('/', auth, async (req, res) => {
 });
 
 // POST /transactions/:num  (transferencia a otra cuenta)
-router.post('/:num', auth, async (req, res) => {
+router.post('/:num', auth, txRules, validate, async (req, res) => {
   try {
     const { num } = req.params;
     const { type, amount, description } = req.body;

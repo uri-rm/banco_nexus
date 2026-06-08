@@ -1,15 +1,27 @@
 const router = require('express').Router();
 const argon2 = require('argon2');
 const jwt = require('jsonwebtoken');
+const { body } = require('express-validator');
 const db = require('../db');
 const { generateAccountNumber } = require('../helpers/validation');
 const audit = require('../services/auditService');
+const validate = require('../middleware/validate');
+
+const loginRules = [
+  body('email').isEmail().withMessage('Email inválido'),
+  body('password').notEmpty().withMessage('La contraseña es requerida'),
+];
+
+const registerRules = [
+  body('username').trim().notEmpty().withMessage('El nombre es requerido'),
+  body('email').isEmail().withMessage('Email inválido'),
+  body('password').isLength({ min: 6 }).withMessage('La contraseña debe tener al menos 6 caracteres'),
+];
 
 // POST /auth/token
-router.post('/token', async (req, res) => {
+router.post('/token', loginRules, validate, async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ detail: 'Email and password required' });
 
     const user = await db('users').where({ email }).first();
     if (!user) return res.status(404).json({ detail: "User doesn't exist" });
@@ -34,10 +46,9 @@ router.post('/token', async (req, res) => {
 });
 
 // POST /auth/register
-router.post('/register', async (req, res) => {
+router.post('/register', registerRules, validate, async (req, res) => {
   try {
     const { username, email, password } = req.body;
-    if (!username || !email || !password) return res.status(400).json({ detail: 'All fields required' });
 
     const exists = await db('users').where({ email }).first();
     if (exists) return res.status(409).json({ detail: 'User already exists' });

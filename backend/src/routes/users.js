@@ -1,8 +1,20 @@
 const router = require('express').Router();
 const argon2 = require('argon2');
+const { body } = require('express-validator');
 const db = require('../db');
 const auth = require('../middleware/auth');
+const validate = require('../middleware/validate');
 const { validateAccountNumber } = require('../helpers/validation');
+
+const updateRules = [
+  body('username').optional().trim().notEmpty().withMessage('El nombre no puede estar vacío'),
+  body('email').optional().isEmail().withMessage('Email inválido'),
+  body('password').optional().isLength({ min: 6 }).withMessage('La contraseña debe tener al menos 6 caracteres'),
+];
+
+const addAccountRules = [
+  body('name').optional().trim(),
+];
 
 const userFields = ['id', 'username', 'email', 'number', 'balance'];
 
@@ -17,7 +29,7 @@ router.get('/me', auth, async (req, res) => {
 });
 
 // PUT /users/me
-router.put('/me', auth, async (req, res) => {
+router.put('/me', auth, updateRules, validate, async (req, res) => {
   try {
     const { username, email, password } = req.body;
     const updates = {};
@@ -42,7 +54,7 @@ router.put('/me', auth, async (req, res) => {
 });
 
 // POST /users/add_account/:num_destiny_account
-router.post('/add_account/:num', auth, async (req, res) => {
+router.post('/add_account/:num', auth, addAccountRules, validate, async (req, res) => {
   try {
     const { num } = req.params;
     const { name } = req.body;

@@ -24,6 +24,7 @@ async function transfer(sender, destinyNumber, amount, description) {
     await trx('users').where({ id: src.id }).update({ balance: src.balance - amount });
     await trx('users').where({ id: dst.id }).update({ balance: dst.balance + amount });
 
+    const now = new Date();
     const [txId] = await trx('transactions').insert({
       user_id: src.id,
       target_user_id: dst.id,
@@ -31,7 +32,17 @@ async function transfer(sender, destinyNumber, amount, description) {
       amount,
       balance_after: src.balance - amount,
       description: description || `transfer a ${destinyNumber}`,
-      date: new Date(),
+      date: now,
+    });
+
+    await trx('transactions').insert({
+      user_id: dst.id,
+      target_user_id: src.id,
+      type: 'transfer',
+      amount,
+      balance_after: dst.balance + amount,
+      description: description || `transfer de ${src.number}`,
+      date: now,
     });
 
     const tx = await trx('transactions').where({ id: txId }).first();
